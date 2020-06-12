@@ -1,0 +1,24 @@
+{
+  "extends": "airbnb",
+  "env": {
+    "browser": true,
+    "node": true,
+    "mocha": true
+  },
+  "rules": {
+    "no-console": "off",
+    "no-underscore-dangle": [
+      "error",
+      {
+        "allow": [
+          "_id",
+          "_oldItem",
+          "_source",
+          "_score",
+          "_password",
+          "_strategies"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "express": "^4.17.1",
+    "mongodb": "^3.5.8",
+    "morgan": "^1.10.0"
+  },
+  "name": "graasp-service-analytics",
+  "version": "1.0.0",
+  "main": "app.js",
+  "repository": "https://github.com/graasp/graasp-service-analytics.git",
+  "author": "Hagop Taminian",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^7.2.0",
+    "eslint-config-airbnb-base": "^14.2.0",
+    "eslint-config-prettier": "^6.11.0",
+    "nodemon": "^2.0.4"
+  },
+  "scripts": {
+    "start": "nodemon app.js"
+  }
+}
