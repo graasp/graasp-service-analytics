@@ -13,6 +13,7 @@ async function fetchWholeTree(collection, ids, parentId = null, results = []) {
   for (let i = 0; i < items.length; i++) {
     const { _id: id, category, subitems = [] } = items[i];
     results.push({ id, category, parentId });
+    console.log('results', results);
     if (subitems.length) {
       await fetchWholeTree(collection, subitems, id, results);
     }
