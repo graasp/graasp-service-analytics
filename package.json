@@ -17,8 +17,6 @@
     "nodemon": "^2.0.4"
   },
   "files": [
-    "actions.js",
-    "subspaces.js",
     "index.js"
   ],
   "scripts": {
