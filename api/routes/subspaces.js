@@ -2,66 +2,37 @@ const express = require('express');
 const ObjectId = require('mongodb').ObjectId;
 const router = express.Router();
 
-router.get('/:id', async (req, res, next) => {
-  const collection = req.app.locals.collection;
-  const spaceId = req.params.id;
-  // initialize subspaces (array of objs) with 'main' space ID extracted from route param
-  let subspaces = [
-    {
-      id: spaceId,
-      fetchAttempted: false,
-      fetchSuccessful: false,
-      parentSpaceId: null,
-      category: null,
-    },
-  ];
-  // first try-catch block to query DB for 'main' space ID
-  try {
-    const dbResponse = await collection.findOne({
-      _id: ObjectId(spaceId),
-    });
-    // while some subspace is unfetched, query DB for it
-    while (subspaces.some((subspace) => !subspace.fetchAttempted)) {
-      for (let subspace of subspaces) {
-        if (!subspace.fetchAttempted) {
-          try {
-            const dbResponse = await collection.findOne({
-              _id: ObjectId(subspace.id),
-            });
-            const { subitems, category } = dbResponse;
-            subspace.fetchAttempted = true;
-            subspace.fetchSuccessful = true;
-            subspace.category = category;
-            let mappedSubspaces = [];
-            if (!subitems) {
-              mappedSubspaces = [];
-            } else {
-              mappedSubspaces = subitems.map((subitem) => {
-                return {
-                  id: subitem.toString(),
-                  fetchAttempted: false,
-                  fetchSuccessful: false,
-                  parentSpaceId: subspace.id,
-                  category: null,
-                };
-              });
-            }
-            subspaces = [...subspaces, ...mappedSubspaces];
-          } catch (error) {
-            subspace.fetchAttempted = true;
-            subspace.fetchSuccessful = false;
-          }
-        }
-      }
+async function fetchWholeTree(collection, ids, parentId = null, results = []) {
+  const items = await collection
+    .find(
+      { _id: { $in: ids }, category: 'Space' },
+      { category: 1, subitems: 1 },
+    )
+    .toArray();
+
+  for (let i = 0; i < items.length; i++) {
+    const { _id: id, category, subitems = [] } = items[i];
+    results.push({ id, category, parentId });
+    if (subitems.length) {
+      await fetchWholeTree(collection, subitems, id, results);
     }
-  } catch (error) {
-    next();
-    return;
   }
-  res
-    .status(200)
-    .json(subspaces.filter((subspace) => subspace.category === 'Space'));
-  next();
+  return results;
+}
+
+router.get('/:spaceId', async (req, res, next) => {
+  const { spaceId } = req.params;
+  const { db } = req.app.locals;
+  if (!db) {
+    return next('Missing db handler');
+  }
+  const collection = db.collection('items');
+  try {
+    const results = await fetchWholeTree(collection, [ObjectId(spaceId)]);
+    res.json(results);
+  } catch (error) {
+    next(error.message || error);
+  }
 });
 
 module.exports = router;

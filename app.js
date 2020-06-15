@@ -11,7 +11,8 @@ MongoClient.connect('mongodb://localhost:27017', {
 }).then((client) => {
   // set database and collection
   const db = client.db('graaspeu');
-  const collection = db.collection('items');
+  // share mongodb connection with application
+  app.locals.db = db;
   // middleware
   app.use(morgan('dev'));
   app.use('/subspaces', subspaceRouter);
@@ -25,8 +26,6 @@ MongoClient.connect('mongodb://localhost:27017', {
     res.status(error.status || 500);
     res.json({ error: { message: error.message } });
   });
-  // share mongodb connection with application
-  app.locals.collection = collection;
   // listen on port
   const port = process.env.PORT || 3000;
   app.listen(port, () => console.log(`listening on port ${port}`));
