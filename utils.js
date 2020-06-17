@@ -27,7 +27,7 @@ const fetchWholeTree = async (
   return spaceTree;
 };
 
-const fetchActions = async (collection, sampleSize, ...spaceIds) => {
+const fetchActions = async (collection, sampleSize, spaceIds) => {
   const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
 
   return await collection

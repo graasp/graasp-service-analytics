@@ -1,7 +1,7 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const morgan = require('morgan');
-const subspaceRouter = require('./subspaces');
+const subspaceRouter = require('./index');
 
 const app = express();
 // todo: extract URL to process.env
