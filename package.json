@@ -7,14 +7,18 @@
   "main": "index.js",
   "dependencies": {
     "express": "4.16.2",
-    "mongodb": "3.1.1"
+    "mongodb": "3.1.1",
+    "morgan": "1.10.0"
   },
   "devDependencies": {
-    "eslint": "^7.2.0",
-    "eslint-config-airbnb-base": "^14.2.0",
-    "eslint-config-prettier": "^6.11.0",
-    "morgan": "^1.10.0",
-    "nodemon": "^2.0.4"
+    "commitlint": "9.0.1",
+    "eslint": "7.2.0",
+    "eslint-config-airbnb-base": "14.2.0",
+    "eslint-config-prettier": "6.11.0",
+    "husky": "4.2.5",
+    "nodemon": "2.0.4",
+    "prettier": "2.0.5",
+    "standard-version": "8.0.0"
   },
   "scripts": {
     "start": "nodemon app.js"
