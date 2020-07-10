@@ -10,4 +10,4 @@ const markTaskComplete = async (collection, taskId, fileId) => {
   );
 };
 
-module.exports = markTaskComplete;
+module.exports = { markTaskComplete };

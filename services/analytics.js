@@ -2,34 +2,23 @@ const ObjectId = require('mongodb').ObjectId;
 
 const fetchActions = async (collection, spaceIds, { sampleSize } = {}) => {
   const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
+  const aggregateQuery = [
+    {
+      $match: {
+        space: {
+          $in: spaceObjectIds,
+        },
+      },
+    },
+    { $project: { data: 0 } },
+  ];
 
   if (sampleSize) {
-    return await collection
-      .aggregate([
-        {
-          $match: {
-            space: {
-              $in: spaceObjectIds,
-            },
-          },
-        },
-        { $project: { data: 0 } },
-        { $sample: { size: sampleSize } },
-      ])
-      .toArray();
+    aggregateQuery.push({ $sample: { size: sampleSize } });
   }
 
   return await collection
-    .aggregate([
-      {
-        $match: {
-          space: {
-            $in: spaceObjectIds,
-          },
-        },
-      },
-      { $project: { data: 0 } },
-    ])
+    .aggregate(aggregateQuery)
     .toArray();
 };
 

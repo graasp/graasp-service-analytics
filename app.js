@@ -3,7 +3,6 @@ const { MongoClient } = require('mongodb');
 const morgan = require('morgan');
 const analyticsRouter = require('./routers/analytics');
 const tasksRouter = require('./routers/tasks');
-const postAnalyticsFile = require('./middleware/postAnalyticsFile');
 
 const app = express();
 // todo: extract URL to process.env
@@ -20,7 +19,7 @@ MongoClient.connect('mongodb://localhost:27017', {
   // middleware
   app.use(morgan('dev'));
   app.use(express.json());
-  app.use('/analytics', analyticsRouter, postAnalyticsFile);
+  app.use('/analytics', analyticsRouter);
   app.use('/tasks', tasksRouter);
 
   // error handlers
