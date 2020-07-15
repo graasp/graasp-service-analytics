@@ -99,7 +99,7 @@ const createTask = [
   },
   // execute task and post result
   async (req, res, next) => {
-    const { db } = req.app.locals;
+    const { db, logger } = req.app.locals;
 
     const itemsCollection = db.collection('items');
     const actionsCollection = db.collection('appactions');
@@ -133,7 +133,6 @@ const createTask = [
     const jsonData = JSON.stringify(fileData, null, 2);
     const fileName = `${task.createdAt.toISOString()}-${task._id.toString()}.json`;
 
-    //
     fs.writeFile(fileName, jsonData, async (err) => {
       if (err) {
         throw err;
@@ -148,6 +147,7 @@ const createTask = [
         await hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
         await markTaskComplete(tasksCollection, task._id, fileId);
       } catch (err) {
+        logger.error(err);
         await tasksCollection.deleteOne({ _id: task._id });
       }
     });
