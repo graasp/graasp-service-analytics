@@ -5,6 +5,7 @@ const markTaskComplete = async (collection, taskId, fileId) => {
       $set: {
         completed: true,
         location: `https://graasp.eu/resources/${fileId}`,
+        updatedAt: new Date(Date.now()),
       },
     },
   );
