@@ -2,9 +2,11 @@ const ObjectId = require('mongodb').ObjectId;
 const { fetchWholeTree, fetchActions } = require('../services/analytics');
 
 const getAnalytics = async (req, res, next) => {
+  console.log('A1');
   // extract and set DB/collection parameters
   const { db } = req.app.locals;
   if (!db) {
+    console.log('A2');
     return next('Missing db handler');
   }
   const itemsCollection = db.collection('items');
@@ -17,6 +19,7 @@ const getAnalytics = async (req, res, next) => {
 
   // extract query params, parse requestedSampleSize
   let { spaceId, requestedSampleSize } = req.query;
+  console.log('A3');
   if (!requestedSampleSize) {
     requestedSampleSize = DEFAULT_SAMPLE_SIZE;
   } else {
@@ -32,12 +35,14 @@ const getAnalytics = async (req, res, next) => {
       [ObjectId(spaceId)],
       { MAX_TREE_LENGTH },
     );
+    console.log('A4');
 
     // fetch (sample of) actions of retrieved space ids
     const spaceIds = spaceTree.map((space) => space.id);
     const actions = await fetchActions(actionsCollection, spaceIds, {
       sampleSize: requestedSampleSize,
     });
+    console.log('A5');
 
     // structure results object to be returned
     const results = {
@@ -51,9 +56,12 @@ const getAnalytics = async (req, res, next) => {
         numActionsRetrieved: actions.length,
       },
     };
+    console.log('A6');
 
     res.json(results);
   } catch (error) {
+    console.log('A7', error);
+
     next(error.message || error);
   }
 };
