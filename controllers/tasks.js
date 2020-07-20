@@ -160,7 +160,7 @@ const createTask = [
       logger.debug('file write complete; uploading file');
       const fileId = await uploadFile(
         // for testing, use spaceId 5ed5f92233c8a33f3d5d87a5
-        `https://graasp.eu/spaces/5ed5f92233c8a33f3d5d87a5/file-upload`,
+        `https://graasp.eu/spaces/${task.spaceId}/file-upload`,
         req.headers.cookie,
         fileName,
       );
