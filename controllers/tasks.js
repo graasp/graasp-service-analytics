@@ -110,15 +110,18 @@ const createTask = [
     task = task.ops[0];
 
     // fetch *whole* space tree
+    logger.debug('fetching whole space tree');
     const spaceTree = await fetchWholeTree(itemsCollection, [
       ObjectId(task.spaceId),
     ]);
 
     // fetch actions cursor of retrieved tree
     const spaceIds = spaceTree.map((space) => space.id);
+    logger.debug('fetching actions cursor');
     const actionsCursor = await fetchActions(actionsCollection, spaceIds);
 
     // create file name to write data to
+    logger.debug('beginning file write');
     const fileName = `${task.createdAt.toISOString()}-${task._id.toString()}.json`;
 
     // write opening array bracket onto JSON file
@@ -148,19 +151,22 @@ const createTask = [
     // write closing bracket onto JSON file
     await fs.appendFile(fileName, '\n]\n', async (err) => {
       if (err) {
-        throw err;
+        logger.error(err);
       }
     });
 
     // trigger upload/delete/hide/task complete operations
     try {
+      logger.debug('file write complete; uploading file');
       const fileId = await uploadFile(
         // for testing, use spaceId 5ed5f92233c8a33f3d5d87a5
         `https://graasp.eu/spaces/5ed5f92233c8a33f3d5d87a5/file-upload`,
         req.headers.cookie,
         fileName,
       );
+      logger.debug('hiding file');
       await hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
+      logger.debug('marking task complete');
       await markTaskComplete(tasksCollection, task._id, fileId);
     } catch (err) {
       logger.error(err);
