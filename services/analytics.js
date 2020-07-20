@@ -15,9 +15,10 @@ const fetchActions = async (collection, spaceIds, { sampleSize } = {}) => {
 
   if (sampleSize) {
     aggregateQuery.push({ $sample: { size: sampleSize } });
+    return await collection.aggregate(aggregateQuery).toArray();
   }
 
-  return await collection.aggregate(aggregateQuery).toArray();
+  return await collection.aggregate(aggregateQuery);
 };
 
 const fetchWholeTree = async (
