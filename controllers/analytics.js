@@ -35,9 +35,11 @@ const getAnalytics = async (req, res, next) => {
 
     // fetch (sample of) actions of retrieved space ids
     const spaceIds = spaceTree.map((space) => space.id);
-    const actions = await fetchActions(actionsCollection, spaceIds, {
-      sampleSize: requestedSampleSize,
-    });
+    const actions = await (
+      await fetchActions(actionsCollection, spaceIds, {
+        sampleSize: requestedSampleSize,
+      })
+    ).toArray();
 
     // structure results object to be returned
     const results = {
