@@ -1,5 +1,5 @@
 const fs = require('fs');
-const ObjectId = require('mongodb').ObjectId;
+const { ObjectId } = require('mongodb');
 const { fetchWholeTree, fetchActions } = require('../services/analytics');
 const { markTaskComplete } = require('../services/tasks');
 const uploadFile = require('../utils/uploadFile');
@@ -24,9 +24,9 @@ const getTask = async (req, res, next) => {
     if (!response) {
       return res.status(404).json({ error: 'Task not found.' });
     }
-    res.json(response);
+    return res.json(response);
   } catch (err) {
-    res.status(500).json(err);
+    return res.status(500).json(err);
   }
 };
 
@@ -70,35 +70,34 @@ const createTask = [
         message:
           'This request already exists. If you are seeing this message, it is likely that you have already requested data for this space in the past 24 hours. Please try again later.',
       });
-    } else {
-      // if 'taskExists' fails to catch duplicate entries, uniqueness index will do so (jumps to catch block)
-      // otherwise, code in try block will run, creating the task
-      try {
-        const task = {
-          userId,
-          spaceId,
-          createdAt: new Date(Date.now()),
-          completed: false,
-          location: null,
-        };
-        const insertedTask = await tasksCollection.insert(task);
+    }
+    // if 'taskExists' fails to catch duplicates, uniqueness index will do so (goes to catch block)
+    // otherwise, code in try block will run, creating the task
+    try {
+      const task = {
+        userId,
+        spaceId,
+        createdAt: new Date(Date.now()),
+        completed: false,
+        location: null,
+      };
+      const insertedTask = await tasksCollection.insert(task);
 
-        res.status(202).json({
-          success: true,
-          message: 'Task created',
-          task: insertedTask.ops[0],
-        });
+      res.status(202).json({
+        success: true,
+        message: 'Task created',
+        task: insertedTask.ops[0],
+      });
 
-        // move request to middleware to create requested resource
-        res.locals.task = insertedTask;
-        next();
-      } catch (err) {
-        res.status(403).json(err);
-      }
+      // move request to middleware to create requested resource
+      res.locals.task = insertedTask;
+      return next();
+    } catch (err) {
+      return res.status(403).json(err);
     }
   },
   // execute task and post result
-  async (req, res, next) => {
+  async (req, res) => {
     const { db, logger } = req.app.locals;
 
     const itemsCollection = db.collection('items');
@@ -107,7 +106,7 @@ const createTask = [
 
     // newly created task object returned by previous middleware
     let { task } = res.locals;
-    task = task.ops[0];
+    [task] = task.ops;
 
     // fetch *whole* space tree
     logger.debug('fetching whole space tree');

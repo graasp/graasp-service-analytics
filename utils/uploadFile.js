@@ -14,12 +14,14 @@ const uploadFile = async (url, cookie, filePath) => {
     },
   };
 
-  return await axios
+  const uploadFileResponse = await axios
     .post(url, formData, requestConfig)
     .then((response) => {
-      deleteFileLocally(filePath)
+      deleteFileLocally(filePath);
       return response.data._id;
     });
+
+  return uploadFileResponse;
 };
 
 module.exports = uploadFile;

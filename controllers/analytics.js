@@ -1,4 +1,4 @@
-const ObjectId = require('mongodb').ObjectId;
+const { ObjectId } = require('mongodb');
 const { fetchWholeTree, fetchActions } = require('../services/analytics');
 
 const getAnalytics = async (req, res, next) => {
@@ -16,13 +16,15 @@ const getAnalytics = async (req, res, next) => {
   const MAX_TREE_LENGTH = 200;
 
   // extract query params, parse requestedSampleSize
-  let { spaceId, requestedSampleSize } = req.query;
+  const { spaceId } = req.query;
+  let { requestedSampleSize } = req.query;
   if (!requestedSampleSize) {
     requestedSampleSize = DEFAULT_SAMPLE_SIZE;
   } else {
     requestedSampleSize = parseInt(requestedSampleSize, 10);
-    if (requestedSampleSize > MAX_SAMPLE_SIZE)
+    if (requestedSampleSize > MAX_SAMPLE_SIZE) {
       requestedSampleSize = MAX_SAMPLE_SIZE;
+    }
   }
 
   try {
@@ -54,9 +56,9 @@ const getAnalytics = async (req, res, next) => {
       },
     };
 
-    res.json(results);
+    return res.json(results);
   } catch (error) {
-    next(error.message || error);
+    return next(error.message || error);
   }
 };
 
