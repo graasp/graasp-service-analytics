@@ -1,4 +1,4 @@
-const ObjectId = require('mongodb').ObjectId;
+const { ObjectId } = require('mongodb');
 
 const fetchActions = async (collection, spaceIds, { sampleSize } = {}) => {
   const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
@@ -17,7 +17,8 @@ const fetchActions = async (collection, spaceIds, { sampleSize } = {}) => {
     aggregateQuery.push({ $sample: { size: sampleSize } });
   }
 
-  return await collection.aggregate(aggregateQuery);
+  const aggregationResponse = await collection.aggregate(aggregateQuery);
+  return aggregationResponse;
 };
 
 const fetchWholeTree = async (
@@ -29,13 +30,14 @@ const fetchWholeTree = async (
     .find({ _id: { $in: ids }, category: 'Space' }, { subitems: 1, name: 1 })
     .toArray();
 
-  for (let i = 0; i < items.length; i++) {
+  for (let i = 0; i < items.length; i += 1) {
     const { _id: id, name, subitems = [] } = items[i];
     if (MAX_TREE_LENGTH && spaceTree.length >= MAX_TREE_LENGTH) break;
 
     spaceTree.push({ id, name, parentId });
 
     if (subitems.length) {
+      // eslint-disable-next-line no-await-in-loop
       await fetchWholeTree(collection, subitems, {
         parentId: id,
         spaceTree,
