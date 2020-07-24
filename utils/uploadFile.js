@@ -12,6 +12,8 @@ const uploadFile = async (url, cookie, filePath) => {
       Cookie: cookie,
       ...formData.getHeaders(),
     },
+    maxContentLength: Infinity,
+    maxBodyLength: Infinity,
   };
 
   const uploadFileResponse = await axios
