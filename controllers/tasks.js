@@ -131,9 +131,9 @@ const createTask = [
       )
         .catch(async (err) => {
           logger.error(err);
-          logger.debug('Operation failed during file upload');
+          logger.debug('operation failed during file upload');
           await tasksCollection.deleteOne({ _id: task._id });
-          logger.debug('Attempting to delete created resource');
+          logger.debug('attempting to delete created resource');
           deleteFileLocally(fileName);
         })
         .then((fileId) => {
