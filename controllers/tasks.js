@@ -115,7 +115,7 @@ const createTask = [
 
     // fetch actions cursor of retrieved tree
     const spaceIds = spaceTree.map((space) => space.id);
-    const actionsCursor = await fetchActions(actionsCollection, spaceIds);
+    const actionsCursor = fetchActions(actionsCollection, spaceIds);
 
     // create file name to write data to; create metadata object; write/upload/hide file
     const fileName = `${task.createdAt.toISOString()}-${task._id.toString()}.json`;
