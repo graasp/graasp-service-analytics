@@ -12,7 +12,11 @@ const hideFile = async (url, cookie, fileId) => {
     changes: { hidden: true },
   };
 
-  await axios.put(url, requestBody, requestConfig);
+  try {
+    await axios.put(url, requestBody, requestConfig);
+  } catch (err) {
+    throw new Error('an error occurred during the file hide operation');
+  }
 };
 
 module.exports = hideFile;

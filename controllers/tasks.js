@@ -1,8 +1,9 @@
-const fs = require('fs');
 const { ObjectId } = require('mongodb');
 const { fetchWholeTree, fetchActions } = require('../services/analytics');
 const { markTaskComplete } = require('../services/tasks');
+const writeDataFile = require('../utils/writeDataFile');
 const uploadFile = require('../utils/uploadFile');
+const deleteFileLocally = require('../utils/deleteFileLocally');
 const hideFile = require('../utils/hideFile');
 
 const getTask = async (req, res, next) => {
@@ -31,7 +32,6 @@ const getTask = async (req, res, next) => {
 };
 
 const createTask = [
-  // create task
   async (req, res, next) => {
     // extract and set DB/collection parameters
     const { db } = req.app.locals;
@@ -63,7 +63,6 @@ const createTask = [
 
     // query DB to see if a request by this user for this space already exists
     const taskExists = await tasksCollection.findOne({ userId, spaceId });
-
     if (taskExists) {
       return res.status(403).json({
         success: false,
@@ -71,7 +70,8 @@ const createTask = [
           'This request already exists. If you are seeing this message, it is likely that you have already requested data for this space in the past 24 hours. Please try again later.',
       });
     }
-    // if 'taskExists' fails to catch duplicates, uniqueness index will do so (goes to catch block)
+
+    // if 'taskExists()' fails to catch duplicates, uniqueness index will (goes to catch block)
     // otherwise, code in try block will run, creating the task
     try {
       const task = {
@@ -81,7 +81,7 @@ const createTask = [
         completed: false,
         location: null,
       };
-      const insertedTask = await tasksCollection.insert(task);
+      const insertedTask = await tasksCollection.insertOne(task);
 
       res.status(202).json({
         success: true,
@@ -109,68 +109,42 @@ const createTask = [
     [task] = task.ops;
 
     // fetch *whole* space tree
-    logger.debug('fetching whole space tree');
     const spaceTree = await fetchWholeTree(itemsCollection, [
       ObjectId(task.spaceId),
     ]);
 
     // fetch actions cursor of retrieved tree
     const spaceIds = spaceTree.map((space) => space.id);
-    logger.debug('fetching actions cursor');
-    const actionsCursor = await fetchActions(actionsCollection, spaceIds);
+    const actionsCursor = fetchActions(actionsCollection, spaceIds);
 
-    // create file name to write data to
-    logger.debug('beginning file write');
+    // create file name to write data to; create metadata object; write/upload/hide file
     const fileName = `${task.createdAt.toISOString()}-${task._id.toString()}.json`;
-
-    // write opening array bracket onto JSON file
-    await fs.writeFile(fileName, '[\n', (err) => {
-      if (err) {
-        logger.error(err);
-      }
-    });
-
-    // iterate over cursor and write each document onto JSON file
-    let separator = '';
-    await actionsCursor.forEach((document) => {
-      fs.appendFile(
-        fileName,
-        separator + JSON.stringify(document, null, 2),
-        (err) => {
-          if (err) {
-            logger.error(err);
-          }
-        },
-      );
-      if (!separator) {
-        separator = ',\n';
-      }
-    });
-
-    // write closing bracket onto JSON file
-    await fs.appendFile(fileName, '\n]\n', async (err) => {
-      if (err) {
-        logger.error(err);
-      }
-    });
-
-    // trigger upload/delete/hide/task complete operations
-    try {
-      logger.debug('file write complete; uploading file');
-      const fileId = await uploadFile(
-        // for testing, use spaceId 5ed5f92233c8a33f3d5d87a5
+    const metadata = {
+      spaceTree,
+      createdAt: new Date(Date.now()),
+    };
+    writeDataFile(fileName, actionsCursor, metadata, () => {
+      uploadFile(
         `https://graasp.eu/spaces/${task.spaceId}/file-upload`,
         req.headers.cookie,
         fileName,
-      );
-      logger.debug('hiding file');
-      await hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
-      logger.debug('marking task complete');
-      await markTaskComplete(tasksCollection, task._id, fileId);
-    } catch (err) {
-      logger.error(err);
-      await tasksCollection.deleteOne({ _id: task._id });
-    }
+      )
+        .catch(async (err) => {
+          logger.error(err);
+          logger.debug('operation failed during file upload');
+          await tasksCollection.deleteOne({ _id: task._id });
+          logger.debug('attempting to delete created resource');
+          deleteFileLocally(fileName);
+          throw err;
+        })
+        .then((fileId) => {
+          markTaskComplete(tasksCollection, task._id, fileId);
+          hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
+        })
+        .catch((err) => {
+          logger.error(err);
+        });
+    });
   },
 ];
 

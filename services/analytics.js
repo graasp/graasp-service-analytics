@@ -1,6 +1,6 @@
 const { ObjectId } = require('mongodb');
 
-const fetchActions = async (collection, spaceIds, { sampleSize } = {}) => {
+const fetchActions = (collection, spaceIds, { sampleSize } = {}) => {
   const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
   const aggregateQuery = [
     {
@@ -17,8 +17,7 @@ const fetchActions = async (collection, spaceIds, { sampleSize } = {}) => {
     aggregateQuery.push({ $sample: { size: sampleSize } });
   }
 
-  const aggregationResponse = await collection.aggregate(aggregateQuery);
-  return aggregationResponse;
+  return collection.aggregate(aggregateQuery);
 };
 
 const fetchWholeTree = async (
