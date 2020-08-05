@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.5](https://github.com/graasp/graasp-service-analytics/compare/v0.2.4...v0.2.5) (2020-08-05)
+
+
+### Features
+
+* address file write/upload issues ([2f35e5c](https://github.com/graasp/graasp-service-analytics/commit/2f35e5c9ec911fb0a436b3c04687f1a37abbd636)), closes [#21](https://github.com/graasp/graasp-service-analytics/issues/21)
+
 ### [0.2.4](https://github.com/graasp/graasp-service-analytics/compare/v0.2.3...v0.2.4) (2020-07-21)
 
 
