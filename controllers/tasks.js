@@ -135,6 +135,7 @@ const createTask = [
           await tasksCollection.deleteOne({ _id: task._id });
           logger.debug('attempting to delete created resource');
           deleteFileLocally(fileName);
+          throw err;
         })
         .then((fileId) => {
           markTaskComplete(tasksCollection, task._id, fileId);

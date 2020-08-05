@@ -5,6 +5,11 @@ const writeDataFile = (fileName, mongoCursor, metadata, callback) => {
   // init writable stream
   const file = fs.createWriteStream(fileName, { flags: 'a' });
 
+  // set up error handler
+  file.on('error', (err) => {
+    throw err;
+  });
+
   // create opening lines of json file
   file.write('{\n"data": {"actions":[\n');
 
@@ -20,10 +25,11 @@ const writeDataFile = (fileName, mongoCursor, metadata, callback) => {
     // this callback comes with mongo cursor .forEach method
     () => {
       // close "data" key-value pair, add metadata key-value pair, close entire json object
-      file.write(`]\n}, "metadata": ${JSON.stringify(metadata)} \n}`);
-
-      // custom callback triggered after file write is complete
-      callback();
+      file.write(
+        `]\n}, "metadata": ${JSON.stringify(metadata)} \n}`,
+        null,
+        callback,
+      );
     },
   );
 };
