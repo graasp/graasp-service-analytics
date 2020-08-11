@@ -10,10 +10,10 @@ const fetchActions = (collection, spaceIds, { sampleSize } = {}) => {
         },
       },
     },
-    { $project: { data: 0 } },
   ];
 
   if (sampleSize) {
+    aggregateQuery.push({ $project: { data: 0 } });
     aggregateQuery.push({ $sample: { size: sampleSize } });
   }
 
