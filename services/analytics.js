@@ -64,7 +64,7 @@ const fetchUsers = (collection, spaceIds) => {
   return collection.aggregate(aggregateQuery);
 };
 
-const fetchApps = async (collection, spaceId) => {
+const fetchAppInstances = async (collection, spaceId) => {
   const { path } = await collection.findOne({ _id: ObjectId(spaceId) });
   collection.createIndex({ category: 1, appInstance: 1, path: 1 });
   const aggregateQuery = [
@@ -88,16 +88,21 @@ const fetchApps = async (collection, spaceId) => {
   return collection.aggregate(aggregateQuery);
 };
 
-const appendAppInstanceSettings = async (collection, appObject) => {
-  const { appInstance } = appObject;
+const appendAppInstanceSettings = async (collection, appInstanceObject) => {
+  const { appInstance, url, name } = appInstanceObject;
   const { settings } = await collection.findOne({ _id: ObjectId(appInstance) });
-  return { ...appObject, _id: appInstance, settings };
+  return {
+    _id: appInstance,
+    url,
+    name,
+    settings,
+  };
 };
 
 module.exports = {
   fetchActions,
   fetchWholeTree,
   fetchUsers,
-  fetchApps,
+  fetchAppInstances,
   appendAppInstanceSettings,
 };

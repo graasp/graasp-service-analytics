@@ -3,7 +3,7 @@ const {
   fetchWholeTree,
   fetchActions,
   fetchUsers,
-  fetchApps,
+  fetchAppInstances,
   appendAppInstanceSettings,
 } = require('../services/analytics');
 
@@ -70,17 +70,20 @@ const getAnalytics = async (req, res, next) => {
           : { ...user, type: 'graasp' };
       });
 
-    // fetch apps, and then append 'settings' key to each app object
-    const appsCursor = await fetchApps(itemsCollection, spaceId);
-    const appsArray = await appsCursor.toArray();
-    const apps = [];
-    for (let i = 0; i < appsArray.length; i += 1) {
+    // fetch app instances, and then append 'settings' key to each app instance object
+    const appInstancesCursor = await fetchAppInstances(
+      itemsCollection,
+      spaceId,
+    );
+    const appInstancesArray = await appInstancesCursor.toArray();
+    const appInstances = [];
+    for (let i = 0; i < appInstancesArray.length; i += 1) {
       // eslint-disable-next-line no-await-in-loop
-      const appWithSettings = await appendAppInstanceSettings(
+      const appInstanceWithSettings = await appendAppInstanceSettings(
         appInstancesCollection,
-        appsArray[i],
+        appInstancesArray[i],
       );
-      apps.push(appWithSettings);
+      appInstances.push(appInstanceWithSettings);
     }
 
     // structure results object to be returned
@@ -88,7 +91,7 @@ const getAnalytics = async (req, res, next) => {
       spaceTree,
       actions,
       users,
-      apps,
+      appInstances,
       metadata: {
         numSpacesRetrieved: spaceTree.length,
         maxTreeLength: MAX_TREE_LENGTH,

@@ -3,7 +3,7 @@ const {
   fetchWholeTree,
   fetchActions,
   fetchUsers,
-  fetchApps,
+  fetchAppInstances,
   appendAppInstanceSettings,
 } = require('../services/analytics');
 const { markTaskComplete } = require('../services/tasks');
@@ -143,17 +143,20 @@ const createTask = [
           : { ...user, type: 'graasp' };
       });
 
-    // fetch apps, and then append 'settings' key to each app object
-    const appsCursor = await fetchApps(itemsCollection, task.spaceId);
-    const appsArray = await appsCursor.toArray();
-    const apps = [];
-    for (let i = 0; i < appsArray.length; i += 1) {
+    // fetch app instances, and then append 'settings' key to each app instance object
+    const appInstancesCursor = await fetchAppInstances(
+      itemsCollection,
+      task.spaceId,
+    );
+    const appInstancesArray = await appInstancesCursor.toArray();
+    const appInstances = [];
+    for (let i = 0; i < appInstancesArray.length; i += 1) {
       // eslint-disable-next-line no-await-in-loop
-      const appWithSettings = await appendAppInstanceSettings(
+      const appInstanceWithSettings = await appendAppInstanceSettings(
         appInstancesCollection,
-        appsArray[i],
+        appInstancesArray[i],
       );
-      apps.push(appWithSettings);
+      appInstances.push(appInstanceWithSettings);
     }
 
     // create file name to write data to; create metadata object; write/upload/hide file
@@ -161,7 +164,7 @@ const createTask = [
     const metadata = {
       spaceTree,
       users,
-      apps,
+      appInstances,
       createdAt: new Date(Date.now()),
     };
     writeDataFile(fileName, actionsCursor, metadata, () => {
