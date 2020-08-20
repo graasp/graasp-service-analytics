@@ -1,5 +1,11 @@
 const { ObjectId } = require('mongodb');
-const { fetchWholeTree, fetchActions } = require('../services/analytics');
+const {
+  fetchWholeTree,
+  fetchActions,
+  fetchUsers,
+  fetchApps,
+  appendAppInstanceSettings,
+} = require('../services/analytics');
 const { markTaskComplete } = require('../services/tasks');
 const writeDataFile = require('../utils/writeDataFile');
 const uploadFile = require('../utils/uploadFile');
@@ -102,6 +108,8 @@ const createTask = [
 
     const itemsCollection = db.collection('items');
     const actionsCollection = db.collection('appactions');
+    const usersCollection = db.collection('users');
+    const appInstancesCollection = db.collection('appinstances');
     const tasksCollection = db.collection('tasks');
 
     // newly created task object returned by previous middleware
@@ -117,10 +125,43 @@ const createTask = [
     const spaceIds = spaceTree.map((space) => space.id);
     const actionsCursor = fetchActions(actionsCollection, spaceIds);
 
+    // fetch users registered to the array of space ids
+    // the two .map statements transform user objects to align with other Graasp APIs
+    // (1) first map renames "provider" key to "type"
+    // (2) second map: if "type" value begins with "local-contextual", classify user as 'light'
+    const usersCursor = fetchUsers(usersCollection, spaceIds);
+    const usersArray = await usersCursor.toArray();
+    const users = usersArray
+      .map(({ provider: type, ...otherKeys }) => ({
+        type,
+        ...otherKeys,
+      }))
+      // eslint-disable-next-line arrow-body-style
+      .map((user) => {
+        return user.type.indexOf('local-contextual') === 0
+          ? { ...user, type: 'light' }
+          : { ...user, type: 'graasp' };
+      });
+
+    // fetch apps, and then append 'settings' key to each app object
+    const appsCursor = await fetchApps(itemsCollection, task.spaceId);
+    const appsArray = await appsCursor.toArray();
+    const apps = [];
+    for (let i = 0; i < appsArray.length; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const appWithSettings = await appendAppInstanceSettings(
+        appInstancesCollection,
+        appsArray[i],
+      );
+      apps.push(appWithSettings);
+    }
+
     // create file name to write data to; create metadata object; write/upload/hide file
     const fileName = `${task.createdAt.toISOString()}-${task._id.toString()}.json`;
     const metadata = {
       spaceTree,
+      users,
+      apps,
       createdAt: new Date(Date.now()),
     };
     writeDataFile(fileName, actionsCursor, metadata, () => {

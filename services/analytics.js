@@ -48,4 +48,56 @@ const fetchWholeTree = async (
   return spaceTree;
 };
 
-module.exports = { fetchActions, fetchWholeTree };
+const fetchUsers = (collection, spaceIds) => {
+  const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
+  const aggregateQuery = [
+    {
+      $match: {
+        joinedSpaces: {
+          $in: spaceObjectIds,
+        },
+      },
+    },
+    { $project: { _id: 1, name: 1, provider: 1 } },
+  ];
+
+  return collection.aggregate(aggregateQuery);
+};
+
+const fetchApps = async (collection, spaceId) => {
+  const { path } = await collection.findOne({ _id: ObjectId(spaceId) });
+  collection.createIndex({ category: 1, appInstance: 1, path: 1 });
+  const aggregateQuery = [
+    {
+      $match: {
+        category: 'Application',
+        appInstance: { $exists: true },
+        path: new RegExp(`^${path}`),
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        url: 1,
+        name: 1,
+        appInstance: 1,
+      },
+    },
+  ];
+
+  return collection.aggregate(aggregateQuery);
+};
+
+const appendAppInstanceSettings = async (collection, appObject) => {
+  const { appInstance } = appObject;
+  const { settings } = await collection.findOne({ _id: ObjectId(appInstance) });
+  return { ...appObject, _id: appInstance, settings };
+};
+
+module.exports = {
+  fetchActions,
+  fetchWholeTree,
+  fetchUsers,
+  fetchApps,
+  appendAppInstanceSettings,
+};
