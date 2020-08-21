@@ -48,44 +48,47 @@ const fetchWholeTree = async (
   return spaceTree;
 };
 
-const fetchUsers = (collection, spaceIds) => {
-  const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
-  const aggregateQuery = [
-    {
-      $match: {
-        joinedSpaces: {
-          $in: spaceObjectIds,
-        },
-      },
-    },
-    { $project: { _id: 1, name: 1, provider: 1 } },
-  ];
+const fetchUsers = async (collection, spaceIds) => {
+  const users = [];
+  for (let i = 0; i < spaceIds.length; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const { memberships } = await collection.findOne(
+      { _id: ObjectId(spaceIds[i]) },
+      { projection: { _id: 0, memberships: 1 } },
+    );
+    if (memberships) {
+      memberships.forEach(({ userId }) => users.push(userId.toString()));
+    }
+  }
+  // return only unique users
+  return [...new Set(users)];
+};
 
-  return collection.aggregate(aggregateQuery);
+const appendUserInfo = async (collection, userId) => {
+  const { name, provider } = await collection.findOne({
+    _id: ObjectId(userId),
+  });
+  return { _id: userId, name, type: provider };
 };
 
 const fetchAppInstances = async (collection, spaceId) => {
   const { path } = await collection.findOne({ _id: ObjectId(spaceId) });
   collection.createIndex({ category: 1, appInstance: 1, path: 1 });
-  const aggregateQuery = [
+  return collection.find(
     {
-      $match: {
-        category: 'Application',
-        appInstance: { $exists: true },
-        path: new RegExp(`^${path}`),
-      },
+      category: 'Application',
+      appInstance: { $exists: true },
+      path: new RegExp(`^${path}`),
     },
     {
-      $project: {
+      projection: {
         _id: 0,
         url: 1,
         name: 1,
         appInstance: 1,
       },
     },
-  ];
-
-  return collection.aggregate(aggregateQuery);
+  );
 };
 
 const appendAppInstanceSettings = async (collection, appInstanceObject) => {
@@ -103,6 +106,7 @@ module.exports = {
   fetchActions,
   fetchWholeTree,
   fetchUsers,
+  appendUserInfo,
   fetchAppInstances,
   appendAppInstanceSettings,
 };

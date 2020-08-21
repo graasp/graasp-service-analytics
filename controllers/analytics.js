@@ -3,6 +3,7 @@ const {
   fetchWholeTree,
   fetchActions,
   fetchUsers,
+  appendUserInfo,
   fetchAppInstances,
   appendAppInstanceSettings,
 } = require('../services/analytics');
@@ -52,23 +53,23 @@ const getAnalytics = async (req, res, next) => {
     });
     const actions = await actionsCursor.toArray();
 
-    // fetch users registered to the array of space ids
-    // the two .map statements transform user objects to align with other Graasp APIs
-    // (1) first map renames "provider" key to "type"
-    // (2) second map: if "type" value begins with "local-contextual", classify user as 'light'
-    const usersCursor = fetchUsers(usersCollection, spaceIds);
-    const usersArray = await usersCursor.toArray();
-    const users = usersArray
-      .map(({ provider: type, ...otherKeys }) => ({
-        type,
-        ...otherKeys,
-      }))
-      // eslint-disable-next-line arrow-body-style
-      .map((user) => {
-        return user.type.indexOf('local-contextual') === 0
-          ? { ...user, type: 'light' }
-          : { ...user, type: 'graasp' };
-      });
+    // fetch users by space ids; every space with users has a 'memberships' array
+    // for each user, add 'additional info' by querying 'users' collection
+    // convert user "type" value to be either 'light' or 'graasp'
+    const usersArray = await fetchUsers(itemsCollection, spaceIds);
+    const usersWithInfo = [];
+    for (let i = 0; i < usersArray.length; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const userWithInfo = await appendUserInfo(usersCollection, usersArray[i]);
+      usersWithInfo.push(userWithInfo);
+    }
+    // eslint-disable-next-line arrow-body-style
+    const users = usersWithInfo.map(({ type, ...user }) => {
+      return {
+        type: type.startsWith('local-contextual') ? 'light' : 'graasp',
+        ...user,
+      };
+    });
 
     // fetch app instances, and then append 'settings' key to each app instance object
     const appInstancesCursor = await fetchAppInstances(
