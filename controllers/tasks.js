@@ -3,7 +3,7 @@ const {
   fetchWholeTree,
   fetchActions,
   fetchUsers,
-  appendUserInfo,
+  fetchUsersWithInfo,
   fetchAppInstances,
   appendAppInstanceSettings,
 } = require('../services/analytics');
@@ -126,21 +126,36 @@ const createTask = [
     const spaceIds = spaceTree.map((space) => space.id);
     const actionsCursor = fetchActions(actionsCollection, spaceIds);
 
-    // fetch users by space ids; every space with users has a 'memberships' array
-    // for each user, add 'additional info' by querying 'users' collection
-    // convert user "type" value to be either 'light' or 'graasp'
-    const usersArray = await fetchUsers(itemsCollection, spaceIds);
-    const usersWithInfo = [];
-    for (let i = 0; i < usersArray.length; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const userWithInfo = await appendUserInfo(usersCollection, usersArray[i]);
-      usersWithInfo.push(userWithInfo);
-    }
+    // fetch users by space ids; convert mongo cursor to array
+    const usersCursor = fetchUsers(itemsCollection, spaceIds);
+    const usersArray = await usersCursor.toArray();
+
+    // 'usersArray' is an array of objects, each with a 'memberships' key
+    // each 'memberships' key holds an array of objects, each of the format { userId: <mongoId> }
+    // i.e. usersArray = [ { memberships: [ { userId: <mongoId> }, ... ] }, ... ]
+    let userIds = [];
+    usersArray.forEach(({ memberships }) => {
+      if (memberships) {
+        memberships.forEach(({ userId }) => {
+          userIds.push(userId.toString());
+        });
+      }
+    });
+    // filter out duplicate userIds
+    userIds = [...new Set(userIds)];
+
+    // for each user, add 'additional info' by querying the 'users' collection
+    const usersWithInfo = await fetchUsersWithInfo(
+      usersCollection,
+      userIds,
+    ).toArray();
+
+    // rename user "provider" key to "type" and change its value to be either 'light' or 'graasp'
     // eslint-disable-next-line arrow-body-style
-    const users = usersWithInfo.map(({ type, ...user }) => {
+    const users = usersWithInfo.map(({ provider, ...user }) => {
       return {
-        type: type.startsWith('local-contextual') ? 'light' : 'graasp',
         ...user,
+        type: provider.startsWith('local-contextual') ? 'light' : 'graasp',
       };
     });
 

@@ -48,27 +48,20 @@ const fetchWholeTree = async (
   return spaceTree;
 };
 
-const fetchUsers = async (collection, spaceIds) => {
-  const users = [];
-  for (let i = 0; i < spaceIds.length; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const { memberships } = await collection.findOne(
-      { _id: ObjectId(spaceIds[i]) },
-      { projection: { _id: 0, memberships: 1 } },
-    );
-    if (memberships) {
-      memberships.forEach(({ userId }) => users.push(userId.toString()));
-    }
-  }
-  // return only unique users
-  return [...new Set(users)];
+const fetchUsers = (collection, spaceIds) => {
+  const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
+  return collection.find(
+    { _id: { $in: spaceObjectIds } },
+    { projection: { _id: 0, 'memberships.userId': 1 } },
+  );
 };
 
-const appendUserInfo = async (collection, userId) => {
-  const { name, provider } = await collection.findOne({
-    _id: ObjectId(userId),
-  });
-  return { _id: userId, name, type: provider };
+const fetchUsersWithInfo = (collection, userIds) => {
+  const userObjectIds = userIds.map((userId) => ObjectId(userId));
+  return collection.find(
+    { _id: { $in: userObjectIds } },
+    { projection: { name: 1, provider: 1 } },
+  );
 };
 
 const fetchAppInstances = async (collection, spaceId) => {
@@ -106,7 +99,7 @@ module.exports = {
   fetchActions,
   fetchWholeTree,
   fetchUsers,
-  appendUserInfo,
+  fetchUsersWithInfo,
   fetchAppInstances,
   appendAppInstanceSettings,
 };
