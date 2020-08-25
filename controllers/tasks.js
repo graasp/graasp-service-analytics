@@ -1,5 +1,12 @@
 const { ObjectId } = require('mongodb');
-const { fetchWholeTree, fetchActions } = require('../services/analytics');
+const {
+  fetchWholeTree,
+  fetchActions,
+  fetchUsers,
+  fetchUsersWithInfo,
+  fetchAppInstances,
+  appendAppInstanceSettings,
+} = require('../services/analytics');
 const { markTaskComplete } = require('../services/tasks');
 const writeDataFile = require('../utils/writeDataFile');
 const uploadFile = require('../utils/uploadFile');
@@ -102,6 +109,8 @@ const createTask = [
 
     const itemsCollection = db.collection('items');
     const actionsCollection = db.collection('appactions');
+    const usersCollection = db.collection('users');
+    const appInstancesCollection = db.collection('appinstances');
     const tasksCollection = db.collection('tasks');
 
     // newly created task object returned by previous middleware
@@ -117,10 +126,61 @@ const createTask = [
     const spaceIds = spaceTree.map((space) => space.id);
     const actionsCursor = fetchActions(actionsCollection, spaceIds);
 
+    // fetch users by space ids; convert mongo cursor to array
+    const usersCursor = fetchUsers(itemsCollection, spaceIds);
+    const usersArray = await usersCursor.toArray();
+
+    // 'usersArray' is an array of objects, each with a 'memberships' key
+    // each 'memberships' key holds an array of objects, each of the format { userId: <mongoId> }
+    // i.e. usersArray = [ { memberships: [ { userId: <mongoId> }, ... ] }, ... ]
+    let userIds = [];
+    usersArray.forEach(({ memberships }) => {
+      if (memberships) {
+        memberships.forEach(({ userId }) => {
+          userIds.push(userId.toString());
+        });
+      }
+    });
+    // filter out duplicate userIds
+    userIds = [...new Set(userIds)];
+
+    // for each user, add 'additional info' by querying the 'users' collection
+    const usersWithInfo = await fetchUsersWithInfo(
+      usersCollection,
+      userIds,
+    ).toArray();
+
+    // rename user "provider" key to "type" and change its value to be either 'light' or 'graasp'
+    // eslint-disable-next-line arrow-body-style
+    const users = usersWithInfo.map(({ provider, ...user }) => {
+      return {
+        ...user,
+        type: provider.startsWith('local-contextual') ? 'light' : 'graasp',
+      };
+    });
+
+    // fetch app instances, and then append 'settings' key to each app instance object
+    const appInstancesCursor = await fetchAppInstances(
+      itemsCollection,
+      task.spaceId,
+    );
+    const appInstancesArray = await appInstancesCursor.toArray();
+    const appInstances = [];
+    for (let i = 0; i < appInstancesArray.length; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const appInstanceWithSettings = await appendAppInstanceSettings(
+        appInstancesCollection,
+        appInstancesArray[i],
+      );
+      appInstances.push(appInstanceWithSettings);
+    }
+
     // create file name to write data to; create metadata object; write/upload/hide file
     const fileName = `${task.createdAt.toISOString()}-${task._id.toString()}.json`;
     const metadata = {
       spaceTree,
+      users,
+      appInstances,
       createdAt: new Date(Date.now()),
     };
     writeDataFile(fileName, actionsCursor, metadata, () => {

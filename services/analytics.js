@@ -48,4 +48,58 @@ const fetchWholeTree = async (
   return spaceTree;
 };
 
-module.exports = { fetchActions, fetchWholeTree };
+const fetchUsers = (collection, spaceIds) => {
+  const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
+  return collection.find(
+    { _id: { $in: spaceObjectIds } },
+    { projection: { _id: 0, 'memberships.userId': 1 } },
+  );
+};
+
+const fetchUsersWithInfo = (collection, userIds) => {
+  const userObjectIds = userIds.map((userId) => ObjectId(userId));
+  return collection.find(
+    { _id: { $in: userObjectIds } },
+    { projection: { name: 1, provider: 1 } },
+  );
+};
+
+const fetchAppInstances = async (collection, spaceId) => {
+  const { path } = await collection.findOne({ _id: ObjectId(spaceId) });
+  collection.createIndex({ category: 1, appInstance: 1, path: 1 });
+  return collection.find(
+    {
+      category: 'Application',
+      appInstance: { $exists: true },
+      path: new RegExp(`^${path}`),
+    },
+    {
+      projection: {
+        _id: 0,
+        url: 1,
+        name: 1,
+        appInstance: 1,
+      },
+    },
+  );
+};
+
+const appendAppInstanceSettings = async (collection, appInstanceObject) => {
+  const { appInstance, url, name } = appInstanceObject;
+  const { settings } = await collection.findOne({ _id: ObjectId(appInstance) });
+  return {
+    _id: appInstance,
+    url,
+    name,
+    settings,
+  };
+};
+
+module.exports = {
+  fetchActions,
+  fetchWholeTree,
+  fetchUsers,
+  fetchUsersWithInfo,
+  fetchAppInstances,
+  appendAppInstanceSettings,
+};
