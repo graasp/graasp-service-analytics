@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.6](https://github.com/graasp/graasp-service-analytics/compare/v0.2.5...v0.2.6) (2020-09-01)
+
+
+### Features
+
+* add 'data' key to full datasets ([c6c4f05](https://github.com/graasp/graasp-service-analytics/commit/c6c4f059f3099fa452ecb5312c8f4b5d582af5f9)), closes [#24](https://github.com/graasp/graasp-service-analytics/issues/24)
+* retrieve additional data ([7bca818](https://github.com/graasp/graasp-service-analytics/commit/7bca818a32401c4573d5435ff9ec23f99495cbaf)), closes [#26](https://github.com/graasp/graasp-service-analytics/issues/26)
+
+
+### Bug Fixes
+
+* implement correct user retrieval ([dd8b9c5](https://github.com/graasp/graasp-service-analytics/commit/dd8b9c546a9581cd955c3f9821b59ee1660fe606))
+
 ### [0.2.5](https://github.com/graasp/graasp-service-analytics/compare/v0.2.4...v0.2.5) (2020-08-05)
 
 
