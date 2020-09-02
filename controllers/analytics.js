@@ -10,7 +10,7 @@ const {
 
 const getAnalytics = async (req, res, next) => {
   // extract and set DB/collection parameters
-  const { db } = req.app.locals;
+  const { db, logger } = req.app.locals;
   if (!db) {
     return next('Missing db handler');
   }
@@ -25,6 +25,7 @@ const getAnalytics = async (req, res, next) => {
   const MAX_TREE_LENGTH = 200;
 
   // extract query params, parse requestedSampleSize
+  logger.debug('extracting spaceId and requestedSampleSize from req.query');
   const { spaceId } = req.query;
   let { requestedSampleSize } = req.query;
   if (!requestedSampleSize) {
@@ -38,6 +39,7 @@ const getAnalytics = async (req, res, next) => {
 
   try {
     // fetch space tree
+    logger.debug('fetching space tree');
     const spaceTree = await fetchWholeTree(
       itemsCollection,
       [ObjectId(spaceId)],
@@ -45,21 +47,25 @@ const getAnalytics = async (req, res, next) => {
     );
 
     // map array of spaceId objects to array of space ids
+    logger.debug('mapping array of spaceId objects to array of spaceIds');
     const spaceIds = spaceTree.map((space) => space.id);
 
     // fetch (sample of) actions of retrieved space ids
+    logger.debug('fetching sample of actions of retrieved spaceIds');
     const actionsCursor = fetchActions(actionsCollection, spaceIds, {
       sampleSize: requestedSampleSize,
     });
     const actions = await actionsCursor.toArray();
 
     // fetch users by space ids; convert mongo cursor to array
+    logger.debug('fetching users of retrieved spaceIds');
     const usersCursor = fetchUsers(itemsCollection, spaceIds);
     const usersArray = await usersCursor.toArray();
 
     // 'usersArray' is an array of objects, each with a 'memberships' key
     // each 'memberships' key holds an array of objects, each of the format { userId: <mongoId> }
     // i.e. usersArray = [ { memberships: [ { userId: <mongoId> }, ... ] }, ... ]
+    logger.debug('reducing retrieved users array to array of unique user ids');
     let userIds = [];
     usersArray.forEach(({ memberships }) => {
       if (memberships) {
@@ -72,12 +78,16 @@ const getAnalytics = async (req, res, next) => {
     userIds = [...new Set(userIds)];
 
     // for each user, add 'additional info' by querying the 'users' collection
+    logger.debug("fetching user 'name' and 'provider' info for each user id");
     const usersWithInfo = await fetchUsersWithInfo(
       usersCollection,
       userIds,
     ).toArray();
 
     // rename user "provider" key to "type" and change its value to be either 'light' or 'graasp'
+    logger.debug(
+      "converting user 'provider' key to be 'type' and setting it to 'light' or 'graasp'",
+    );
     // eslint-disable-next-line arrow-body-style
     const users = usersWithInfo.map(({ provider, ...user }) => {
       return {
@@ -87,11 +97,13 @@ const getAnalytics = async (req, res, next) => {
     });
 
     // fetch app instances, and then append 'settings' key to each app instance object
+    logger.debug('fetching space appInstances');
     const appInstancesCursor = await fetchAppInstances(
       itemsCollection,
       spaceId,
     );
     const appInstancesArray = await appInstancesCursor.toArray();
+    logger.debug('retrieving settings information for each appInstance');
     const appInstances = [];
     for (let i = 0; i < appInstancesArray.length; i += 1) {
       // eslint-disable-next-line no-await-in-loop
@@ -102,6 +114,7 @@ const getAnalytics = async (req, res, next) => {
       appInstances.push(appInstanceWithSettings);
     }
 
+    logger.debug('structuring results object to be returned as response');
     // structure results object to be returned
     const results = {
       spaceTree,
@@ -119,6 +132,7 @@ const getAnalytics = async (req, res, next) => {
 
     return res.json(results);
   } catch (error) {
+    logger.error(error);
     return next(error.message || error);
   }
 };

@@ -71,7 +71,7 @@ const fetchAppInstances = async (collection, spaceId) => {
     {
       category: 'Application',
       appInstance: { $exists: true },
-      path: new RegExp(`^${path}`),
+      path: new RegExp(`^${path}${spaceId}~`),
     },
     {
       projection: {
