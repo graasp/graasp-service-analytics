@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.7](https://github.com/graasp/graasp-service-analytics/compare/v0.2.6...v0.2.7) (2020-09-02)
+
+
+### Bug Fixes
+
+* fix regexp in fetchAppInstances in /services/analytics ([955a761](https://github.com/graasp/graasp-service-analytics/commit/955a7619bb63e735b7e08218e5999244ef17adde))
+
 ### [0.2.6](https://github.com/graasp/graasp-service-analytics/compare/v0.2.5...v0.2.6) (2020-09-01)
 
 
