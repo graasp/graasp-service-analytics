@@ -1,7 +1,17 @@
 const fs = require('fs');
 
-// iterates over a mongocursor and writes a json file with "data" and "metadata" key-value pairs
-const writeDataFile = (fileName, mongoCursor, metadata, callback) => {
+// writeDataFile takes the cursors and arrays retrieved from the DB and writes them to a json file
+// cursors (actions and appInstanceResources) are written to file using Mongo's .forEach method
+// other data (users, appInstances) is received as an array and written to file with file.write
+const writeDataFile = (
+  fileName,
+  actionsCursor,
+  usersArray,
+  appInstancesArray,
+  appInstancesResourcesCursor,
+  metadata,
+  callback,
+) => {
   // init writable stream
   const file = fs.createWriteStream(fileName, { flags: 'a' });
 
@@ -11,24 +21,48 @@ const writeDataFile = (fileName, mongoCursor, metadata, callback) => {
   });
 
   // create opening lines of json file
-  file.write('{\n"data": {"actions":[\n');
+  file.write('{"data": {"actions":[');
 
-  // var separator is used in forEach loop below to delimit mongodb docs when writing to file
+  // separator is used in forEach loops below to delimit mongo cursor docs when writing to file
   let separator = '';
-  mongoCursor.forEach(
+
+  actionsCursor.forEach(
     (document) => {
-      file.write(separator + JSON.stringify(document, null, 2));
+      file.write(separator + JSON.stringify(document));
       if (!separator) {
-        separator = ',\n';
+        separator = ',';
       }
     },
-    // this callback comes with mongo cursor .forEach method
+    // this callback comes with mongo cursor .forEach method, and executes after .forEach completes
     () => {
-      // close "data" key-value pair, add metadata key-value pair, close entire json object
+      // reset separator to be used in second mongo cursor
+      separator = '';
+      // use file.write to write users and appInstances arrays to file,
       file.write(
-        `]\n}, "metadata": ${JSON.stringify(metadata)} \n}`,
+        `],"users":${JSON.stringify(
+          usersArray,
+        )},"appInstances":${JSON.stringify(
+          appInstancesArray,
+        )}, "appInstanceResources":[`,
         null,
-        callback,
+        // file.write's callback - executes when file.write completes
+        appInstancesResourcesCursor.forEach(
+          (document) => {
+            file.write(separator + JSON.stringify(document));
+            if (!separator) {
+              separator = ',';
+            }
+          },
+          // callback of 2nd mongo cursor .forEach: add metadata, close json file
+          () => {
+            file.write(
+              `], "metadata": ${JSON.stringify(metadata)}}}`,
+              null,
+              // custom callback in tasks.js (performs other file operations once write is complete)
+              callback,
+            );
+          },
+        ),
       );
     },
   );
