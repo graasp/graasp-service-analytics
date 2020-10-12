@@ -95,6 +95,11 @@ const appendAppInstanceSettings = async (collection, appInstanceObject) => {
   };
 };
 
+// eslint-disable-next-line arrow-body-style
+const fetchAppInstanceResources = (collection, appInstanceIds) => {
+  return collection.find({ appInstance: { $in: appInstanceIds } });
+};
+
 module.exports = {
   fetchActions,
   fetchWholeTree,
@@ -102,4 +107,5 @@ module.exports = {
   fetchUsersWithInfo,
   fetchAppInstances,
   appendAppInstanceSettings,
+  fetchAppInstanceResources,
 };

@@ -6,6 +6,7 @@ const {
   fetchUsersWithInfo,
   fetchAppInstances,
   appendAppInstanceSettings,
+  fetchAppInstanceResources,
 } = require('../services/analytics');
 const { markTaskComplete } = require('../services/tasks');
 const writeDataFile = require('../utils/writeDataFile');
@@ -103,7 +104,7 @@ const createTask = [
       return res.status(403).json(err);
     }
   },
-  // execute task and post result
+  // this portion of the middleware executes the task and posts the result to graasp
   async (req, res) => {
     const { db, logger } = req.app.locals;
 
@@ -112,6 +113,9 @@ const createTask = [
     const usersCollection = db.collection('users');
     const appInstancesCollection = db.collection('appinstances');
     const tasksCollection = db.collection('tasks');
+    const appInstanceResourcesCollection = db.collection(
+      'appinstanceresources',
+    );
 
     // newly created task object returned by previous middleware
     let { task } = res.locals;
@@ -175,36 +179,49 @@ const createTask = [
       appInstances.push(appInstanceWithSettings);
     }
 
+    const appInstanceIds = appInstances.map((appInstance) => appInstance._id);
+    const appInstancesResourcesCursor = fetchAppInstanceResources(
+      appInstanceResourcesCollection,
+      appInstanceIds,
+    );
+
     // create file name to write data to; create metadata object; write/upload/hide file
     const fileName = `${task.createdAt.toISOString()}-${task._id.toString()}.json`;
     const metadata = {
       spaceTree,
-      users,
-      appInstances,
       createdAt: new Date(Date.now()),
     };
-    writeDataFile(fileName, actionsCursor, metadata, () => {
-      uploadFile(
-        `https://graasp.eu/spaces/${task.spaceId}/file-upload`,
-        req.headers.cookie,
-        fileName,
-      )
-        .catch(async (err) => {
-          logger.error(err);
-          logger.debug('operation failed during file upload');
-          await tasksCollection.deleteOne({ _id: task._id });
-          logger.debug('attempting to delete created resource');
-          deleteFileLocally(fileName);
-          throw err;
-        })
-        .then((fileId) => {
-          markTaskComplete(tasksCollection, task._id, fileId);
-          hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
-        })
-        .catch((err) => {
-          logger.error(err);
-        });
-    });
+
+    writeDataFile(
+      fileName,
+      actionsCursor,
+      users,
+      appInstances,
+      appInstancesResourcesCursor,
+      metadata,
+      () => {
+        uploadFile(
+          `https://graasp.eu/spaces/${task.spaceId}/file-upload`,
+          req.headers.cookie,
+          fileName,
+        )
+          .catch(async (err) => {
+            logger.error(err);
+            logger.debug('operation failed during file upload');
+            await tasksCollection.deleteOne({ _id: task._id });
+            logger.debug('attempting to delete created resource');
+            deleteFileLocally(fileName);
+            throw err;
+          })
+          .then((fileId) => {
+            markTaskComplete(tasksCollection, task._id, fileId);
+            hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
+          })
+          .catch((err) => {
+            logger.error(err);
+          });
+      },
+    );
   },
 ];
 
