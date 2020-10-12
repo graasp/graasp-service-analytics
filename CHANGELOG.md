@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.8](https://github.com/graasp/graasp-service-analytics/compare/v0.2.7...v0.2.8) (2020-10-12)
+
+
+### Features
+
+* add appInstanceResources to and reconfigure data file ([c034c0e](https://github.com/graasp/graasp-service-analytics/commit/c034c0e789604a9712336122663c8ad4f382b9fc)), closes [#31](https://github.com/graasp/graasp-service-analytics/issues/31)
+
 ### [0.2.7](https://github.com/graasp/graasp-service-analytics/compare/v0.2.6...v0.2.7) (2020-09-02)
 
 
