@@ -117,7 +117,7 @@ const getAnalytics = async (req, res, next) => {
     });
 
     if (view === 'compose') {
-      users = users.filter((user) => user.type === 'light');
+      users = users.filter((user) => user.type === 'graasp');
     }
 
     logger.debug('structuring results object to be returned as response');

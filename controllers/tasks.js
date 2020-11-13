@@ -2,6 +2,7 @@ const { ObjectId } = require('mongodb');
 const {
   fetchWholeTree,
   fetchLiveViewActions,
+  fetchComposeViewActions,
   fetchUsers,
   fetchUsersWithInfo,
   fetchAppInstances,
@@ -9,7 +10,10 @@ const {
   fetchAppInstanceResources,
 } = require('../services/analytics');
 const { markTaskComplete } = require('../services/tasks');
-const writeDataFile = require('../utils/writeDataFile');
+const {
+  writeLiveViewDataFile,
+  writeComposeViewDataFile,
+} = require('../utils/writeDataFile');
 const uploadFile = require('../utils/uploadFile');
 const deleteFileLocally = require('../utils/deleteFileLocally');
 const hideFile = require('../utils/hideFile');
@@ -25,10 +29,17 @@ const getTask = async (req, res, next) => {
   // extract userId and spaceId from request query
   const { userId, spaceId } = req.query;
 
+  // extract requested view from request query
+  let { view } = req.query;
+  if (view !== 'compose') {
+    view = 'live';
+  }
+
   try {
     const response = await tasksCollection.findOne({
       userId: ObjectId(userId),
       spaceId: ObjectId(spaceId),
+      view,
     });
     if (!response) {
       return res.status(404).json({ error: 'Task not found.' });
@@ -48,8 +59,19 @@ const createTask = [
     }
     const tasksCollection = db.collection('tasks');
 
-    // MongoDB index to enforce unique userId/spaceId combinations
-    tasksCollection.createIndex({ userId: 1, spaceId: 1 }, { unique: true });
+    // drop old MongoDB {userId, spaceId} index (from previous version of this middleware)
+    // this is necessary to avoid conflicts with the updated index (below)
+    tasksCollection.indexInformation({}, (error, result) => {
+      if (result.userId_1_spaceId_1) {
+        tasksCollection.dropIndex({ userId: 1, spaceId: 1 });
+      }
+    });
+
+    // MongoDB index to enforce unique userId/spaceId/view combinations
+    tasksCollection.createIndex(
+      { userId: 1, spaceId: 1, view: 1 },
+      { unique: true },
+    );
 
     // MongoDB TTL index to remove task documents after createdAt stamp + expireAfterSeconds
     const ONE_DAY_IN_SECONDS = 86400;
@@ -58,7 +80,7 @@ const createTask = [
       { expireAfterSeconds: ONE_DAY_IN_SECONDS },
     );
 
-    // extract request body (JSON); type-convert userId and spaceId
+    // extract userId and spaceId from request body (JSON); type-convert userId and spaceId
     const { userId: bodyUserId, spaceId: bodySpaceId } = req.body;
     if (!bodyUserId || !bodySpaceId) {
       return res.status(400).json({
@@ -69,13 +91,19 @@ const createTask = [
     const userId = ObjectId(bodyUserId);
     const spaceId = ObjectId(bodySpaceId);
 
-    // query DB to see if a request by this user for this space already exists
-    const taskExists = await tasksCollection.findOne({ userId, spaceId });
+    // extract requested view from request body; if view !== compose, default to live view
+    let { view } = req.body;
+    if (view !== 'compose') {
+      view = 'live';
+    }
+
+    // query DB to see if a request by this user for this space/view combo already exists
+    const taskExists = await tasksCollection.findOne({ userId, spaceId, view });
     if (taskExists) {
       return res.status(403).json({
         success: false,
         message:
-          'This request already exists. If you are seeing this message, it is likely that you have already requested data for this space in the past 24 hours. Please try again later.',
+          'This request already exists. If you are seeing this message, it is likely that you have already requested data for this space/view combination in the past 24 hours. Please try again later.',
       });
     }
 
@@ -85,6 +113,7 @@ const createTask = [
       const task = {
         userId,
         spaceId,
+        view,
         createdAt: new Date(Date.now()),
         completed: false,
         location: null,
@@ -109,7 +138,8 @@ const createTask = [
     const { db, logger } = req.app.locals;
 
     const itemsCollection = db.collection('items');
-    const actionsCollection = db.collection('appactions');
+    const liveViewActionsCollection = db.collection('appactions');
+    const composeViewActionsCollection = db.collection('actions');
     const usersCollection = db.collection('users');
     const appInstancesCollection = db.collection('appinstances');
     const tasksCollection = db.collection('tasks');
@@ -128,7 +158,15 @@ const createTask = [
 
     // fetch actions cursor of retrieved tree
     const spaceIds = spaceTree.map((space) => space.id);
-    const actionsCursor = fetchLiveViewActions(actionsCollection, spaceIds);
+    let actionsCursor;
+    if (task.view === 'compose') {
+      actionsCursor = fetchComposeViewActions(
+        composeViewActionsCollection,
+        spaceIds,
+      );
+    } else {
+      actionsCursor = fetchLiveViewActions(liveViewActionsCollection, spaceIds);
+    }
 
     // fetch users by space ids; convert mongo cursor to array
     const usersCursor = fetchUsers(itemsCollection, spaceIds);
@@ -156,50 +194,81 @@ const createTask = [
 
     // rename user "provider" key to "type" and change its value to be either 'light' or 'graasp'
     // eslint-disable-next-line arrow-body-style
-    const users = usersWithInfo.map(({ provider, ...user }) => {
+    let users = usersWithInfo.map(({ provider, ...user }) => {
       return {
         ...user,
         type: provider.startsWith('local-contextual') ? 'light' : 'graasp',
       };
     });
 
-    // fetch app instances, and then append 'settings' key to each app instance object
-    const appInstancesCursor = await fetchAppInstances(
-      itemsCollection,
-      task.spaceId,
-    );
-    const appInstancesArray = await appInstancesCursor.toArray();
-    const appInstances = [];
-    for (let i = 0; i < appInstancesArray.length; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const appInstanceWithSettings = await appendAppInstanceSettings(
-        appInstancesCollection,
-        appInstancesArray[i],
-      );
-      appInstances.push(appInstanceWithSettings);
+    if (task.view === 'compose') {
+      users = users.filter((user) => user.type === 'graasp');
     }
 
-    const appInstanceIds = appInstances.map((appInstance) => appInstance._id);
-    const appInstancesResourcesCursor = fetchAppInstanceResources(
-      appInstanceResourcesCollection,
-      appInstanceIds,
-    );
-
-    // create file name to write data to; create metadata object; write/upload/hide file
+    // create file name to write data to; create metadata object
     const fileName = `${task.createdAt.toISOString()}-${task._id.toString()}.json`;
     const metadata = {
       spaceTree,
       createdAt: new Date(Date.now()),
     };
 
-    writeDataFile(
-      fileName,
-      actionsCursor,
-      users,
-      appInstances,
-      appInstancesResourcesCursor,
-      metadata,
-      () => {
+    // if view not compose, fetch app instances, and append 'settings' key to each app inst. object
+    // then write/upload/hide file w/appInstances and appInstanceResources
+    // else (compose view) write file w/o appInstances and appInstanceResources
+    if (task.view !== 'compose') {
+      const appInstancesCursor = await fetchAppInstances(
+        itemsCollection,
+        task.spaceId,
+      );
+      const appInstancesArray = await appInstancesCursor.toArray();
+      const appInstances = [];
+      for (let i = 0; i < appInstancesArray.length; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        const appInstanceWithSettings = await appendAppInstanceSettings(
+          appInstancesCollection,
+          appInstancesArray[i],
+        );
+        appInstances.push(appInstanceWithSettings);
+      }
+
+      const appInstanceIds = appInstances.map((appInstance) => appInstance._id);
+      const appInstancesResourcesCursor = fetchAppInstanceResources(
+        appInstanceResourcesCollection,
+        appInstanceIds,
+      );
+
+      writeLiveViewDataFile(
+        fileName,
+        actionsCursor,
+        users,
+        appInstances,
+        appInstancesResourcesCursor,
+        metadata,
+        () => {
+          uploadFile(
+            `https://graasp.eu/spaces/${task.spaceId}/file-upload`,
+            req.headers.cookie,
+            fileName,
+          )
+            .catch(async (err) => {
+              logger.error(err);
+              logger.debug('operation failed during file upload');
+              await tasksCollection.deleteOne({ _id: task._id });
+              logger.debug('attempting to delete created resource');
+              deleteFileLocally(fileName);
+              throw err;
+            })
+            .then((fileId) => {
+              markTaskComplete(tasksCollection, task._id, fileId);
+              hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
+            })
+            .catch((err) => {
+              logger.error(err);
+            });
+        },
+      );
+    } else {
+      writeComposeViewDataFile(fileName, actionsCursor, users, metadata, () => {
         uploadFile(
           `https://graasp.eu/spaces/${task.spaceId}/file-upload`,
           req.headers.cookie,
@@ -220,8 +289,8 @@ const createTask = [
           .catch((err) => {
             logger.error(err);
           });
-      },
-    );
+      });
+    }
   },
 ];
 
