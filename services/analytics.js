@@ -1,6 +1,6 @@
 const { ObjectId } = require('mongodb');
 
-const fetchActions = (collection, spaceIds, { sampleSize } = {}) => {
+const fetchLiveViewActions = (collection, spaceIds, { sampleSize } = {}) => {
   const spaceObjectIds = spaceIds.map((spaceId) => ObjectId(spaceId));
   const aggregateQuery = [
     {
@@ -14,6 +14,23 @@ const fetchActions = (collection, spaceIds, { sampleSize } = {}) => {
 
   if (sampleSize) {
     aggregateQuery.push({ $project: { data: 0 } });
+    aggregateQuery.push({ $sample: { size: sampleSize } });
+  }
+
+  return collection.aggregate(aggregateQuery);
+};
+
+const fetchComposeViewActions = (collection, spaceIds, { sampleSize } = {}) => {
+  const spaceIdStrings = spaceIds.map((spaceId) => spaceId.toString());
+  const aggregateQuery = [
+    {
+      $match: {
+        'target.id': { $in: spaceIdStrings },
+      },
+    },
+  ];
+
+  if (sampleSize) {
     aggregateQuery.push({ $sample: { size: sampleSize } });
   }
 
@@ -101,7 +118,8 @@ const fetchAppInstanceResources = (collection, appInstanceIds) => {
 };
 
 module.exports = {
-  fetchActions,
+  fetchLiveViewActions,
+  fetchComposeViewActions,
   fetchWholeTree,
   fetchUsers,
   fetchUsersWithInfo,

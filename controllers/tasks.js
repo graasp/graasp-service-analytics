@@ -1,7 +1,7 @@
 const { ObjectId } = require('mongodb');
 const {
   fetchWholeTree,
-  fetchActions,
+  fetchLiveViewActions,
   fetchUsers,
   fetchUsersWithInfo,
   fetchAppInstances,
@@ -128,7 +128,7 @@ const createTask = [
 
     // fetch actions cursor of retrieved tree
     const spaceIds = spaceTree.map((space) => space.id);
-    const actionsCursor = fetchActions(actionsCollection, spaceIds);
+    const actionsCursor = fetchLiveViewActions(actionsCollection, spaceIds);
 
     // fetch users by space ids; convert mongo cursor to array
     const usersCursor = fetchUsers(itemsCollection, spaceIds);

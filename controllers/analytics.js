@@ -1,7 +1,8 @@
 const { ObjectId } = require('mongodb');
 const {
   fetchWholeTree,
-  fetchActions,
+  fetchLiveViewActions,
+  fetchComposeViewActions,
   fetchUsers,
   fetchUsersWithInfo,
   fetchAppInstances,
@@ -14,8 +15,11 @@ const getAnalytics = async (req, res, next) => {
   if (!db) {
     return next('Missing db handler');
   }
+
+  // note: appActionsCollection has 'live view' actions, actionsCollection 'compose view' actions
   const itemsCollection = db.collection('items');
-  const actionsCollection = db.collection('appactions');
+  const liveViewActionsCollection = db.collection('appactions');
+  const composeViewActionsCollection = db.collection('actions');
   const usersCollection = db.collection('users');
   const appInstancesCollection = db.collection('appinstances');
 
@@ -26,7 +30,7 @@ const getAnalytics = async (req, res, next) => {
 
   // extract query params, parse requestedSampleSize
   logger.debug('extracting spaceId and requestedSampleSize from req.query');
-  const { spaceId } = req.query;
+  const { spaceId, view } = req.query;
   let { requestedSampleSize } = req.query;
   if (!requestedSampleSize) {
     requestedSampleSize = DEFAULT_SAMPLE_SIZE;
@@ -50,12 +54,28 @@ const getAnalytics = async (req, res, next) => {
     logger.debug('mapping array of spaceId objects to array of spaceIds');
     const spaceIds = spaceTree.map((space) => space.id);
 
-    // fetch (sample of) actions of retrieved space ids
+    // fetch (sample of) actions of retrieved space ids, depending on view requested
     logger.debug('fetching sample of actions of retrieved spaceIds');
-    const actionsCursor = fetchActions(actionsCollection, spaceIds, {
-      sampleSize: requestedSampleSize,
-    });
-    const actions = await actionsCursor.toArray();
+    let actions;
+    if (view === 'compose') {
+      const actionsCursor = fetchComposeViewActions(
+        composeViewActionsCollection,
+        spaceIds,
+        {
+          sampleSize: requestedSampleSize,
+        },
+      );
+      actions = await actionsCursor.toArray();
+    } else {
+      const actionsCursor = fetchLiveViewActions(
+        liveViewActionsCollection,
+        spaceIds,
+        {
+          sampleSize: requestedSampleSize,
+        },
+      );
+      actions = await actionsCursor.toArray();
+    }
 
     // fetch users by space ids; convert mongo cursor to array
     logger.debug('fetching users of retrieved spaceIds');
@@ -96,31 +116,12 @@ const getAnalytics = async (req, res, next) => {
       };
     });
 
-    // fetch app instances, and then append 'settings' key to each app instance object
-    logger.debug('fetching space appInstances');
-    const appInstancesCursor = await fetchAppInstances(
-      itemsCollection,
-      spaceId,
-    );
-    const appInstancesArray = await appInstancesCursor.toArray();
-    logger.debug('retrieving settings information for each appInstance');
-    const appInstances = [];
-    for (let i = 0; i < appInstancesArray.length; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const appInstanceWithSettings = await appendAppInstanceSettings(
-        appInstancesCollection,
-        appInstancesArray[i],
-      );
-      appInstances.push(appInstanceWithSettings);
-    }
-
     logger.debug('structuring results object to be returned as response');
     // structure results object to be returned
     const results = {
       spaceTree,
       actions,
       users,
-      appInstances,
       metadata: {
         numSpacesRetrieved: spaceTree.length,
         maxTreeLength: MAX_TREE_LENGTH,
@@ -129,6 +130,27 @@ const getAnalytics = async (req, res, next) => {
         numActionsRetrieved: actions.length,
       },
     };
+
+    // if view not compose, fetch app instances, and append 'settings' key to each app inst. object
+    if (view !== 'compose') {
+      logger.debug('fetching space appInstances');
+      const appInstancesCursor = await fetchAppInstances(
+        itemsCollection,
+        spaceId,
+      );
+      const appInstancesArray = await appInstancesCursor.toArray();
+      logger.debug('retrieving settings information for each appInstance');
+      const appInstances = [];
+      for (let i = 0; i < appInstancesArray.length; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        const appInstanceWithSettings = await appendAppInstanceSettings(
+          appInstancesCollection,
+          appInstancesArray[i],
+        );
+        appInstances.push(appInstanceWithSettings);
+      }
+      results.appInstances = appInstances;
+    }
 
     return res.json(results);
   } catch (error) {
