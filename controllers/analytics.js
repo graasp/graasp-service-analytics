@@ -109,12 +109,16 @@ const getAnalytics = async (req, res, next) => {
       "converting user 'provider' key to be 'type' and setting it to 'light' or 'graasp'",
     );
     // eslint-disable-next-line arrow-body-style
-    const users = usersWithInfo.map(({ provider, ...user }) => {
+    let users = usersWithInfo.map(({ provider, ...user }) => {
       return {
         ...user,
         type: provider.startsWith('local-contextual') ? 'light' : 'graasp',
       };
     });
+
+    if (view === 'compose') {
+      users = users.filter((user) => user.type === 'light');
+    }
 
     logger.debug('structuring results object to be returned as response');
     // structure results object to be returned
