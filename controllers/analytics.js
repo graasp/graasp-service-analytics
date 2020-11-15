@@ -8,6 +8,17 @@ const {
   fetchAppInstances,
   appendAppInstanceSettings,
 } = require('../services/analytics');
+const {
+  COMPOSE_VIEW_STRING,
+  ITEMS_COLLECTION_NAME,
+  LIVE_VIEW_ACTIONS_COLLECTION_NAME,
+  COMPOSE_VIEW_ACTIONS_COLLECTION_NAME,
+  USERS_COLLECTION_NAME,
+  APP_INSTANCES_COLLECTION_NAME,
+  LOCAL_CONTEXTUAL_STRING,
+  LIGHT_USER_STRING,
+  GRAASP_USER_STRING,
+} = require('../config/constants');
 
 const getAnalytics = async (req, res, next) => {
   // extract and set DB/collection parameters
@@ -17,11 +28,15 @@ const getAnalytics = async (req, res, next) => {
   }
 
   // note: appActionsCollection has 'live view' actions, actionsCollection 'compose view' actions
-  const itemsCollection = db.collection('items');
-  const liveViewActionsCollection = db.collection('appactions');
-  const composeViewActionsCollection = db.collection('actions');
-  const usersCollection = db.collection('users');
-  const appInstancesCollection = db.collection('appinstances');
+  const itemsCollection = db.collection(ITEMS_COLLECTION_NAME);
+  const liveViewActionsCollection = db.collection(
+    LIVE_VIEW_ACTIONS_COLLECTION_NAME,
+  );
+  const composeViewActionsCollection = db.collection(
+    COMPOSE_VIEW_ACTIONS_COLLECTION_NAME,
+  );
+  const usersCollection = db.collection(USERS_COLLECTION_NAME);
+  const appInstancesCollection = db.collection(APP_INSTANCES_COLLECTION_NAME);
 
   // note: if actual count of actions in db < requestedSampleSize, MongoDB will return all actions
   const DEFAULT_SAMPLE_SIZE = 50000;
@@ -56,26 +71,25 @@ const getAnalytics = async (req, res, next) => {
 
     // fetch (sample of) actions of retrieved space ids, depending on view requested
     logger.debug('fetching sample of actions of retrieved spaceIds');
-    let actions;
-    if (view === 'compose') {
-      const actionsCursor = fetchComposeViewActions(
+    let actionsCursor;
+    if (view === COMPOSE_VIEW_STRING) {
+      actionsCursor = fetchComposeViewActions(
         composeViewActionsCollection,
         spaceIds,
         {
           sampleSize: requestedSampleSize,
         },
       );
-      actions = await actionsCursor.toArray();
     } else {
-      const actionsCursor = fetchLiveViewActions(
+      actionsCursor = fetchLiveViewActions(
         liveViewActionsCollection,
         spaceIds,
         {
           sampleSize: requestedSampleSize,
         },
       );
-      actions = await actionsCursor.toArray();
     }
+    const actions = await actionsCursor.toArray();
 
     // fetch users by space ids; convert mongo cursor to array
     logger.debug('fetching users of retrieved spaceIds');
@@ -112,12 +126,14 @@ const getAnalytics = async (req, res, next) => {
     let users = usersWithInfo.map(({ provider, ...user }) => {
       return {
         ...user,
-        type: provider.startsWith('local-contextual') ? 'light' : 'graasp',
+        type: provider.startsWith(LOCAL_CONTEXTUAL_STRING)
+          ? LIGHT_USER_STRING
+          : GRAASP_USER_STRING,
       };
     });
 
-    if (view === 'compose') {
-      users = users.filter((user) => user.type === 'graasp');
+    if (view === COMPOSE_VIEW_STRING) {
+      users = users.filter((user) => user.type === GRAASP_USER_STRING);
     }
 
     logger.debug('structuring results object to be returned as response');
@@ -136,7 +152,7 @@ const getAnalytics = async (req, res, next) => {
     };
 
     // if view not compose, fetch app instances, and append 'settings' key to each app inst. object
-    if (view !== 'compose') {
+    if (view !== COMPOSE_VIEW_STRING) {
       logger.debug('fetching space appInstances');
       const appInstancesCursor = await fetchAppInstances(
         itemsCollection,

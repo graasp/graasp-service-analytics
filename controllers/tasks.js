@@ -17,6 +17,20 @@ const {
 const uploadFile = require('../utils/uploadFile');
 const deleteFileLocally = require('../utils/deleteFileLocally');
 const hideFile = require('../utils/hideFile');
+const {
+  COMPOSE_VIEW_STRING,
+  LIVE_VIEW_STRING,
+  ITEMS_COLLECTION_NAME,
+  LIVE_VIEW_ACTIONS_COLLECTION_NAME,
+  COMPOSE_VIEW_ACTIONS_COLLECTION_NAME,
+  USERS_COLLECTION_NAME,
+  APP_INSTANCES_COLLECTION_NAME,
+  APP_INSTANCE_RESOURCES_COLLECTION_NAME,
+  TASKS_COLLECTION_NAME,
+  LOCAL_CONTEXTUAL_STRING,
+  LIGHT_USER_STRING,
+  GRAASP_USER_STRING,
+} = require('../config/constants');
 
 const getTask = async (req, res, next) => {
   // extract and set DB/collection parameters
@@ -24,15 +38,15 @@ const getTask = async (req, res, next) => {
   if (!db) {
     return next('Missing db handler');
   }
-  const tasksCollection = db.collection('tasks');
+  const tasksCollection = db.collection(TASKS_COLLECTION_NAME);
 
   // extract userId and spaceId from request query
   const { userId, spaceId } = req.query;
 
   // extract requested view from request query
   let { view } = req.query;
-  if (view !== 'compose') {
-    view = 'live';
+  if (view !== COMPOSE_VIEW_STRING) {
+    view = LIVE_VIEW_STRING;
   }
 
   try {
@@ -57,10 +71,11 @@ const createTask = [
     if (!db) {
       return next('Missing db handler');
     }
-    const tasksCollection = db.collection('tasks');
+    const tasksCollection = db.collection(TASKS_COLLECTION_NAME);
 
     // drop old MongoDB {userId, spaceId} index (from previous version of this middleware)
     // this is necessary to avoid conflicts with the updated index (below)
+    // TODO: remove in next release (becomes redundant after index is dropped one time)
     tasksCollection.indexInformation({}, (error, result) => {
       if (result.userId_1_spaceId_1) {
         tasksCollection.dropIndex({ userId: 1, spaceId: 1 });
@@ -93,8 +108,8 @@ const createTask = [
 
     // extract requested view from request body; if view !== compose, default to live view
     let { view } = req.body;
-    if (view !== 'compose') {
-      view = 'live';
+    if (view !== COMPOSE_VIEW_STRING) {
+      view = LIVE_VIEW_STRING;
     }
 
     // query DB to see if a request by this user for this space/view combo already exists
@@ -137,14 +152,18 @@ const createTask = [
   async (req, res) => {
     const { db, logger } = req.app.locals;
 
-    const itemsCollection = db.collection('items');
-    const liveViewActionsCollection = db.collection('appactions');
-    const composeViewActionsCollection = db.collection('actions');
-    const usersCollection = db.collection('users');
-    const appInstancesCollection = db.collection('appinstances');
-    const tasksCollection = db.collection('tasks');
+    const itemsCollection = db.collection(ITEMS_COLLECTION_NAME);
+    const liveViewActionsCollection = db.collection(
+      LIVE_VIEW_ACTIONS_COLLECTION_NAME,
+    );
+    const composeViewActionsCollection = db.collection(
+      COMPOSE_VIEW_ACTIONS_COLLECTION_NAME,
+    );
+    const usersCollection = db.collection(USERS_COLLECTION_NAME);
+    const appInstancesCollection = db.collection(APP_INSTANCES_COLLECTION_NAME);
+    const tasksCollection = db.collection(TASKS_COLLECTION_NAME);
     const appInstanceResourcesCollection = db.collection(
-      'appinstanceresources',
+      APP_INSTANCE_RESOURCES_COLLECTION_NAME,
     );
 
     // newly created task object returned by previous middleware
@@ -159,7 +178,7 @@ const createTask = [
     // fetch actions cursor of retrieved tree
     const spaceIds = spaceTree.map((space) => space.id);
     let actionsCursor;
-    if (task.view === 'compose') {
+    if (task.view === COMPOSE_VIEW_STRING) {
       actionsCursor = fetchComposeViewActions(
         composeViewActionsCollection,
         spaceIds,
@@ -197,12 +216,14 @@ const createTask = [
     let users = usersWithInfo.map(({ provider, ...user }) => {
       return {
         ...user,
-        type: provider.startsWith('local-contextual') ? 'light' : 'graasp',
+        type: provider.startsWith(LOCAL_CONTEXTUAL_STRING)
+          ? LIGHT_USER_STRING
+          : GRAASP_USER_STRING,
       };
     });
 
-    if (task.view === 'compose') {
-      users = users.filter((user) => user.type === 'graasp');
+    if (task.view === COMPOSE_VIEW_STRING) {
+      users = users.filter((user) => user.type === GRAASP_USER_STRING);
     }
 
     // create file name to write data to; create metadata object
@@ -215,7 +236,7 @@ const createTask = [
     // if view not compose, fetch app instances, and append 'settings' key to each app inst. object
     // then write/upload/hide file w/appInstances and appInstanceResources
     // else (compose view) write file w/o appInstances and appInstanceResources
-    if (task.view !== 'compose') {
+    if (task.view !== COMPOSE_VIEW_STRING) {
       const appInstancesCursor = await fetchAppInstances(
         itemsCollection,
         task.spaceId,
