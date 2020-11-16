@@ -31,6 +31,12 @@ const {
   LIGHT_USER_STRING,
   GRAASP_USER_STRING,
 } = require('../config/constants');
+const {
+  BASE_URL,
+  SPACES_PATH,
+  FILE_UPLOAD_PATH,
+  ITEMS_PATH,
+} = require('../config/api');
 
 const getTask = async (req, res, next) => {
   // extract and set DB/collection parameters
@@ -267,7 +273,7 @@ const createTask = [
         metadata,
         () => {
           uploadFile(
-            `https://graasp.eu/spaces/${task.spaceId}/file-upload`,
+            `${BASE_URL}/${SPACES_PATH}/${task.spaceId}/${FILE_UPLOAD_PATH}`,
             req.headers.cookie,
             fileName,
           )
@@ -281,7 +287,7 @@ const createTask = [
             })
             .then((fileId) => {
               markTaskComplete(tasksCollection, task._id, fileId);
-              hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
+              hideFile(`${BASE_URL}/${ITEMS_PATH}`, req.headers.cookie, fileId);
             })
             .catch((err) => {
               logger.error(err);
@@ -291,7 +297,7 @@ const createTask = [
     } else {
       writeComposeViewDataFile(fileName, actionsCursor, users, metadata, () => {
         uploadFile(
-          `https://graasp.eu/spaces/${task.spaceId}/file-upload`,
+          `${BASE_URL}/${SPACES_PATH}/${task.spaceId}/${FILE_UPLOAD_PATH}`,
           req.headers.cookie,
           fileName,
         )
@@ -305,7 +311,7 @@ const createTask = [
           })
           .then((fileId) => {
             markTaskComplete(tasksCollection, task._id, fileId);
-            hideFile('https://graasp.eu/items/', req.headers.cookie, fileId);
+            hideFile(`${BASE_URL}/${ITEMS_PATH}`, req.headers.cookie, fileId);
           })
           .catch((err) => {
             logger.error(err);
