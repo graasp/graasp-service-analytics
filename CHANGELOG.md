@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.9](https://github.com/graasp/graasp-service-analytics/compare/v0.2.8...v0.2.9) (2020-11-17)
+
+
+### Features
+
+* factor out strings as constants ([efa2d3a](https://github.com/graasp/graasp-service-analytics/commit/efa2d3a2fbe520177d60dc357202b5947e2e46dd))
+* retrieve live/compose view actions ([c60a42d](https://github.com/graasp/graasp-service-analytics/commit/c60a42db13bb767b5c9998d075a3145df32b26af)), closes [#33](https://github.com/graasp/graasp-service-analytics/issues/33)
+* update endpoint for live/compose task/file creation ([e5c2201](https://github.com/graasp/graasp-service-analytics/commit/e5c220189034e9af0688aff6e784852e0132c0ea)), closes [#34](https://github.com/graasp/graasp-service-analytics/issues/34)
+
+
+### Bug Fixes
+
+* filter out light users for compose view ([9cf2e05](https://github.com/graasp/graasp-service-analytics/commit/9cf2e055d7e4aa09e8d2e10f448d3ea2e14d7067))
+* move URL and path constants into api.js file ([ce796f0](https://github.com/graasp/graasp-service-analytics/commit/ce796f0fc2e07401fb724412c7d0cf89b6452dbc))
+
 ### [0.2.8](https://github.com/graasp/graasp-service-analytics/compare/v0.2.7...v0.2.8) (2020-10-12)
 
 
