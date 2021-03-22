@@ -43,14 +43,20 @@ const fetchWholeTree = async (
   { parentId = null, spaceTree = [], MAX_TREE_LENGTH } = {},
 ) => {
   const items = await collection
-    .find({ _id: { $in: ids }, category: 'Space' }, { subitems: 1, name: 1 })
+    .find({ _id: { $in: ids } }, { subitems: 1, name: 1 })
     .toArray();
 
   for (let i = 0; i < items.length; i += 1) {
-    const { _id: id, name, subitems = [] } = items[i];
+    // eslint-disable-next-line object-curly-newline
+    const { _id: id, name, category, subitems = [] } = items[i];
     if (MAX_TREE_LENGTH && spaceTree.length >= MAX_TREE_LENGTH) break;
 
-    spaceTree.push({ id, name, parentId });
+    spaceTree.push({
+      id,
+      name,
+      parentId,
+      category,
+    });
 
     if (subitems.length) {
       // eslint-disable-next-line no-await-in-loop
