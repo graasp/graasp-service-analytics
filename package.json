@@ -27,7 +27,7 @@
   },
   "scripts": {
     "start": "node app.js",
-    "release": "standard-version",
+    "release": "git fetch --tags && git add CHANGELOG.md && standard-version -a",
     "lint": "eslint ."
   }
 }
